@@ -2,12 +2,15 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
 	"strconv"
 
+	"github.com/apex/gateway"
+	"github.com/carlmjohnson/feed2json"
 	"github.com/gorilla/mux"
 )
 
@@ -92,6 +95,17 @@ func main() {
 	r.HandleFunc("/movies/{id}", updateMovie).Methods("PUT")
 	r.HandleFunc("/movies/{id}", deleteMovie).Methods("DELETE")
 
-	fmt.Printf("Starting server at port 8000\n")
-	log.Fatal(http.ListenAndServe(":8000", r))
+	port := flag.Int("port", -1, "specify a port to use http rather than AWS Lambda")
+	flag.Parse()
+	listener := gateway.ListenAndServe
+	portStr := "n/a"
+	if *port != -1 {
+		portStr = fmt.Sprintf(":%d", *port)
+		listener = http.ListenAndServe
+		http.Handle("/", http.FileServer(http.Dir("./public")))
+	}
+
+	http.Handle("/api/movies", feed2json.Handler(
+		feed2json.StaticURLInjector("https://brave-bassi-dd0899.netlify.app"), nil, nil, nil))
+	log.Fatal(listener(portStr, nil))
 }
